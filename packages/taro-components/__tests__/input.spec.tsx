@@ -110,4 +110,39 @@ describe('Input', () => {
 
     expect(page.root).toMatchSnapshot()
   })
+
+  it('在文本中间插入字符时 onInput 携带真实光标位置而非内容末尾 (fix #17893)', async () => {
+    const value = 'abc'
+    const onInput = jest.fn()
+    page = await newSpecPage({
+      components: [Input],
+      template: () => (<taro-input-core
+        value={value}
+        onInput={onInput}
+      />),
+    })
+    const input = page.root?.querySelector('input')
+    expect(input).not.toBeNull()
+
+    // 模拟在 "a" 与 "bc" 之间插入字符 "x" -> "axbc"，光标停在 2
+    const target = input as unknown as HTMLInputElement
+    target.value = 'axbc'
+    try {
+      target.selectionStart = 2
+      target.selectionEnd = 2
+    } catch (e) {
+      // 某些测试环境不支持设置 selection，则跳过光标断言
+    }
+    // @ts-ignore
+    target.dispatchEvent(new CustomEvent('input', { data: 'x', inputType: 'insertText' }))
+
+    expect(onInput).toHaveBeenCalledTimes(1)
+    const detail = onInput.mock.calls[0][0].detail
+    expect(detail.value).toBe('axbc')
+    // 当原生输入框能提供真实光标时，cursor 应为真实位置 (2)，而不是内容末尾 (4)
+    if (typeof target.selectionEnd === 'number') {
+      expect(detail.cursor).toBe(2)
+      expect(detail.cursor).not.toBe(detail.value.length)
+    }
+  })
 })

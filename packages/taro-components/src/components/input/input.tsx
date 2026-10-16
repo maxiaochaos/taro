@@ -148,9 +148,11 @@ export class Input implements ComponentInterface {
       // }
 
       this.value = value
+      // 优先使用原生输入框的真实光标位置，避免在文本中间插入字符时把光标报告为内容末尾 (fix #17893)
+      const selectionEnd = e.target.selectionEnd
       this.onInput.emit({
         value,
-        cursor: value.length
+        cursor: typeof selectionEnd === 'number' ? selectionEnd : value.length
       })
       this.onInputExcuted = false
     }
